@@ -1,4 +1,3 @@
-import requests
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from peewee import *
@@ -38,33 +37,20 @@ class Product(Model):
 db.create_tables([Section, Product])
 
 
-def upload_photo(photo_url):
-    upload_url = vk.photos.getMessagesUploadServer()['upload_url']
-    response = requests.post(upload_url, files={'photo': requests.get(photo_url).content})
-    result = json.loads(response.text)
-    photo = vk.photos.saveMessagesPhoto(**result)[0]
-    return f"photo{photo['owner_id']}_{photo['id']}"
-
 # Заполнение базы данных из словаря catalog
 def populate_database():
     with db.atomic():
         for section_name, products in catalog.items():
             section = Section.create(name=section_name)
             for product in products:
-                photo_id = upload_photo(product['фото'])  # Загрузка фото и получение идентификатора
-                Product.create(
-                    name=product['название'],
-                    description=product['описание'],
-                    photo=photo_id,
-                    section=section
-                )
-
+                Product.create(name=product['название'], description=product['описание'],
+                               photo=product['фото'], section=section)
 
 
 # Словарь с информацией о разделах и товарах
 catalog = {
     'Торты': [
-        {'название': 'Торт 1', 'описание': 'Описание торта 1', 'фото': 'images/celebration-birthday-cake.jpg'},
+        {'название': 'Торт 1', 'описание': 'Описание торта 1', 'фото': 'photo1.jpg'},
         {'название': 'Торт 2', 'описание': 'Описание торта 2', 'фото': 'photo2.jpg'}
     ],
     'Пирожные': [
@@ -93,12 +79,8 @@ def handle_new_message(event):
     elif message in catalog.keys():
         send_products(user_id, message)
     elif message.startswith('Товар:'):
-        try:
-            product_index = int(message.split(':')[1].strip()) - 1
-            send_product_info(user_id, product_index)
-        except (ValueError, IndexError):
-            vk.messages.send(user_id=user_id, message='Некорректный номер товара.', random_id=0)
-
+        product_index = int(message.split(':')[1].strip()) - 1
+        send_product_info(user_id, product_index)
 
 # Отправка главного меню
 def send_main_menu(user_id):
